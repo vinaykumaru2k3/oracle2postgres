@@ -40,20 +40,25 @@ cd oracle2postgres
 ```
 
 ### 2. Set Up Oracle Database with Docker
-The application uses Oracle Database. Run the following command to start an Oracle Free container:
+Pull the Oracle Free image and run the container:
 
-```bash
-docker run -d --name oracle-db -p 1521:1521 -e ORACLE_PWD=oracle123 gvenzl/oracle-free:latest
+```powershell
+docker pull gvenzl/oracle-free
+docker run -d `
+  --name oracle-free `
+  -p 1521:1521 `
+  -e ORACLE_PASSWORD=oracle `
+  gvenzl/oracle-free
 ```
 
 - **Username**: system
-- **Password**: oracle123
+- **Password**: oracle
 - **Service Name**: FREEPDB1
 - **Port**: 1521
 
 Wait for the container to fully initialize (this may take a few minutes). You can check the logs with:
-```bash
-docker logs oracle-db
+```powershell
+docker logs oracle-free
 ```
 
 ### 3. Configure Environment Variables
