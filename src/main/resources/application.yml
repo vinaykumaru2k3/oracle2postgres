@@ -1,11 +1,11 @@
 spring:
   datasource:
-    url: jdbc:oracle:thin:@${ORACLE_HOST}:${ORACLE_PORT}/${ORACLE_SERVICE}
+    url: ${ORACLE_URL}
     username: ${ORACLE_USERNAME}
     password: ${ORACLE_PASSWORD}
     driver-class-name: oracle.jdbc.OracleDriver
   jpa:
     database-platform: org.hibernate.dialect.OracleDialect
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
     show-sql: true
