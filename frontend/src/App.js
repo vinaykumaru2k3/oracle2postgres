@@ -9,10 +9,14 @@ function App() {
   const [updateInventory, setUpdateInventory] = useState({ productId: '', quantity: '' });
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [totalValue, setTotalValue] = useState(0);
+  const [activeStock, setActiveStock] = useState([]);
 
   useEffect(() => {
     fetchProducts();
     fetchRecentInventory();
+    fetchTotalValue();
+    fetchActiveStock();
   }, []);
 
   const fetchProducts = async () => {
@@ -39,6 +43,26 @@ function App() {
       setInventory(data);
     } catch (err) {
       console.error('Error fetching inventory:', err);
+    }
+  };
+
+  const fetchTotalValue = async () => {
+    try {
+      const response = await fetch('/api/value');
+      const data = await response.json();
+      setTotalValue(data);
+    } catch (err) {
+      console.error('Error fetching total value:', err);
+    }
+  };
+
+  const fetchActiveStock = async () => {
+    try {
+      const response = await fetch('/api/active-stock');
+      const data = await response.json();
+      setActiveStock(data);
+    } catch (err) {
+      console.error('Error fetching active stock:', err);
     }
   };
 
@@ -239,6 +263,43 @@ function App() {
               </tbody>
             </table>
           )}
+        </section>
+
+        {/* Total Inventory Value Section */}
+        <section className="section">
+          <h2>💰 Total Inventory Value</h2>
+          <p className="instruction">Calculated value of all active products in stock</p>
+          <div className="value-display">
+            <span className="total-value">${totalValue.toFixed(2)}</span>
+          </div>
+        </section>
+
+        {/* Active Products with Stock Section */}
+        <section className="section">
+          <h2>📦 Active Products with Stock</h2>
+          <p className="instruction">View active products and their current stock levels</p>
+          <table className="active-stock-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Price</th>
+                <th>Quantity</th>
+                <th>Last Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activeStock.map((item, index) => (
+                <tr key={index}>
+                  <td>{item.id}</td>
+                  <td>{item.name}</td>
+                  <td>${item.price}</td>
+                  <td>{item.quantity}</td>
+                  <td>{new Date(item.lastUpdated).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
       </div>
     </div>

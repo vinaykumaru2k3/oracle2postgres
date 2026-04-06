@@ -318,3 +318,37 @@ body {
 .update-info strong {
   color: #667eea;
 }
+
+/* Total Inventory Value */
+.value-display {
+  text-align: center;
+  padding: 20px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  margin: 10px 0;
+}
+
+.total-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #28a745;
+}
+
+/* Active Stock Table */
+.active-stock-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.active-stock-table th,
+.active-stock-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.active-stock-table th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
