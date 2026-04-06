@@ -83,13 +83,23 @@ The backend will start on `http://localhost:8080`.
 ### 5. Set Up and Run the Frontend
 Navigate to the `frontend` directory:
 
-```bash
+```powershell
 cd frontend
 npm install
 npm start
 ```
 
 The frontend will start on `http://localhost:3000`.
+
+### 6. Set Up Linting and Pre-commit Hooks
+After installing dependencies, set up Husky for pre-commit hooks:
+
+```powershell
+cd frontend
+npm run prepare  # Sets up Husky (may show deprecated warning, but works)
+```
+
+Pre-commit hooks will run ESLint, Prettier on frontend code, and Spotless on backend Java code.
 
 ## Usage
 
