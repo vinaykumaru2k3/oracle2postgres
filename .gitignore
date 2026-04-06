@@ -1,0 +1,28 @@
+prompt.txt
+.env
+/node_modules
+/dist
+/.vscode
+
+# Java/Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+logs/
+.idea/
+*.iml
+
+# React/Node.js
+frontend/node_modules/
+frontend/build/
+frontend/.env
+
+# General
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+*.bak
