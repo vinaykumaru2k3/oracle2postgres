@@ -30,46 +30,60 @@ This document lists all Oracle-specific elements currently implemented in the Sp
   @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "product_seq")
   @SequenceGenerator(name = "product_seq", sequenceName = "product_seq", allocationSize = 1)
   ```
-- **Migration**: PostgreSQL supports sequences natively. Can keep `GenerationType.SEQUENCE` or switch to `GenerationType.IDENTITY` which maps to PostgreSQL's `SERIAL`/`BIGSERIAL`.
+- **Impact**: Spring Data's `Page<Product> findAll(Pageable pageable)` generates Oracle-specific `ROWNUM`-based subquery pagination when using `OracleDialect`. Switching to `PostgreSQLDialect` automatically generates clean `LIMIT/OFFSET` instead — no Java change needed.
+- **Migration**: Keep `GenerationType.SEQUENCE` or switch to `GenerationType.IDENTITY` which maps to PostgreSQL `SERIAL`/`BIGSERIAL`.
 
 ---
 
 ## 3. Oracle Native Query Syntax
 
-### 3a. ROWNUM (Pagination)
-- **File**: `ProductRepository.java`
-- **Current**:
-  ```java
-  @Query(value = "SELECT * FROM product WHERE ROWNUM <= ?1", nativeQuery = true)
-  List<Product> findProductsWithLimit(int limit);
-  ```
-- **Migration**: Replace `ROWNUM` with `LIMIT`:
-  ```sql
-  SELECT * FROM product LIMIT ?1
-  ```
-
-### 3b. NVL (Null Handling)
+### 3a. NVL (Null Handling)
 - **File**: `ProductRepository.java`
 - **Current**:
   ```java
   @Query(value = "SELECT * FROM product WHERE NVL(is_active, 0) = 1", nativeQuery = true)
   List<Product> findActiveProducts();
   ```
-- **Migration**: Replace `NVL` with `COALESCE`:
+- **Also used in**:
+  ```java
+  @Query(value = "... WHERE NVL(p.is_active, 0) = 1 AND i.quantity < :threshold ...", nativeQuery = true)
+  List<Object[]> findLowStockProducts(@Param("threshold") int threshold);
+  ```
+- **Migration**: Replace all `NVL` with `COALESCE` and `= 1` with `= true`:
   ```sql
   SELECT * FROM product WHERE COALESCE(is_active, false) = true
   ```
 
-### 3c. SYSDATE (Current Timestamp)
+### 3b. SYSDATE (Current Timestamp)
 - **File**: `InventoryRepository.java`
 - **Current**:
   ```java
-  @Query(value = "SELECT * FROM inventory WHERE last_updated >= SYSDATE - INTERVAL '1' DAY", nativeQuery = true)
+  @Query(value = "SELECT * FROM inventory WHERE last_updated >= SYSDATE - INTERVAL '1' DAY ORDER BY last_updated DESC", nativeQuery = true)
   List<Inventory> findRecentUpdates();
   ```
-- **Migration**: Replace `SYSDATE` with `NOW()`:
+- **Migration**: Replace `SYSDATE` with `NOW()` and fix interval syntax:
   ```sql
-  SELECT * FROM inventory WHERE last_updated >= NOW() - INTERVAL '1 day'
+  SELECT * FROM inventory WHERE last_updated >= NOW() - INTERVAL '1 day' ORDER BY last_updated DESC
+  ```
+
+### 3c. TO_TIMESTAMP with Oracle Format Mask
+- **File**: `InventoryRepository.java`
+- **Current**:
+  ```java
+  @Query(value = """
+      SELECT * FROM inventory
+      WHERE last_updated >= TO_TIMESTAMP(:from, 'YYYY-MM-DD"T"HH24:MI:SS')
+        AND last_updated <= TO_TIMESTAMP(:to,   'YYYY-MM-DD"T"HH24:MI:SS')
+      ORDER BY last_updated DESC
+      """, nativeQuery = true)
+  List<Inventory> findByDateRange(@Param("from") String from, @Param("to") String to);
+  ```
+- **Migration**: PostgreSQL uses `::timestamp` cast or a different `TO_TIMESTAMP` format:
+  ```sql
+  SELECT * FROM inventory
+  WHERE last_updated >= :from::timestamp
+    AND last_updated <= :to::timestamp
+  ORDER BY last_updated DESC
   ```
 
 ---
@@ -77,12 +91,33 @@ This document lists all Oracle-specific elements currently implemented in the Sp
 ## 4. Boolean Mapped to NUMBER(1)
 
 - **File**: `Product.java`
-- **Current**: Oracle has no native `BOOLEAN` type. Hibernate maps Java `Boolean` to `NUMBER(1)` (0 = false, 1 = true). The `is_active` column is stored as `NUMBER(1)`.
-- **Migration**: PostgreSQL has a native `BOOLEAN` type. No Java code change needed — Hibernate handles the mapping automatically when the dialect is switched.
+- **Current**: Oracle has no native `BOOLEAN` type. Hibernate maps Java `Boolean` to `NUMBER(1)` (0 = false, 1 = true). All native queries that filter on `is_active` use `= 1` or `NVL(is_active, 0) = 1`.
+- **Affected queries**: `findActiveProducts`, `findLowStockProducts`, `active_products_with_stock` view, `calculate_total_value` procedure.
+- **Migration**: PostgreSQL has a native `BOOLEAN` type. Hibernate handles the entity mapping automatically on dialect switch. All native queries must change `= 1` → `= true` and `NVL(..., 0)` → `COALESCE(..., false)`.
 
 ---
 
-## 5. Stored Procedure — `calculate_total_value`
+## 5. Spring Data Pagination — Dialect-Generated SQL
+
+- **File**: `ProductRepository.java`, `InventoryService.java`
+- **Current**:
+  ```java
+  Page<Product> findAll(Pageable pageable);  // used by GET /api/products?page=&size=
+  ```
+  With `OracleDialect`, Hibernate generates a `ROWNUM`-based subquery:
+  ```sql
+  SELECT * FROM (SELECT ..., ROWNUM rnum FROM product WHERE ROWNUM <= ?)
+  WHERE rnum > ?
+  ```
+- **Migration**: Switching to `PostgreSQLDialect` automatically generates:
+  ```sql
+  SELECT * FROM product ORDER BY id LIMIT ? OFFSET ?
+  ```
+  No Java code change needed — the dialect handles it.
+
+---
+
+## 6. Stored Procedure — `calculate_total_value`
 
 - **File**: `oracle-init.sql`, called from `InventoryService.java`
 - **Current Oracle procedure**:
@@ -102,8 +137,8 @@ This document lists all Oracle-specific elements currently implemented in the Sp
   query.execute();
   return (BigDecimal) query.getOutputParameterValue(1);
   ```
-- **Status**: Created and VALID in Oracle. Exposed via `GET /api/value` → returns `72045`.
-- **Migration**: Convert to a PostgreSQL function using PL/pgSQL:
+- **Status**: VALID in Oracle. Called by `GET /api/value` and `GET /api/reports/summary`.
+- **Migration**: PostgreSQL functions don't use `OUT` parameters the same way. Rewrite as a PL/pgSQL function and update the Java call:
   ```sql
   CREATE OR REPLACE FUNCTION calculate_total_value()
   RETURNS NUMERIC AS $$
@@ -117,15 +152,15 @@ This document lists all Oracle-specific elements currently implemented in the Sp
   END;
   $$ LANGUAGE plpgsql;
   ```
-  Update the Java call to use `createStoredProcedureQuery("calculate_total_value")` with no OUT parameter, or replace with a JPQL query:
+  Replace the Java `StoredProcedureQuery` call with a native query:
   ```java
-  @Query("SELECT SUM(p.price * i.quantity) FROM Product p JOIN Inventory i ON p.id = i.productId WHERE p.isActive = true")
+  @Query(value = "SELECT calculate_total_value()", nativeQuery = true)
   BigDecimal calculateTotalValue();
   ```
 
 ---
 
-## 6. View — `active_products_with_stock`
+## 7. View — `active_products_with_stock`
 
 - **File**: `oracle-init.sql`, queried from `ProductRepository.java`
 - **Current Oracle view**:
@@ -141,12 +176,12 @@ This document lists all Oracle-specific elements currently implemented in the Sp
   @Query(value = "SELECT * FROM active_products_with_stock ORDER BY quantity DESC", nativeQuery = true)
   List<Object[]> findActiveProductsWithStock();
   ```
-- **Status**: Created and VALID in Oracle. Exposed via `GET /api/active-stock` → returns all 20 active products sorted by quantity descending.
-- **Migration**: PostgreSQL views use identical `CREATE OR REPLACE VIEW` syntax. Only change needed is `WHERE p.is_active = 1` → `WHERE p.is_active = true`.
+- **Status**: VALID in Oracle. Used by `GET /api/active-stock` and drives the Active Stock DataGrid, Top Stock Items, and low-stock threshold comparisons in the frontend.
+- **Migration**: View syntax is identical in PostgreSQL. Only change: `WHERE p.is_active = 1` → `WHERE p.is_active = true`.
 
 ---
 
-## 7. Trigger — `inventory_audit_trigger`
+## 8. Trigger — `inventory_audit_trigger`
 
 - **File**: `oracle-init.sql`
 - **Current Oracle trigger**:
@@ -161,19 +196,15 @@ This document lists all Oracle-specific elements currently implemented in the Sp
             :NEW.product_id, :OLD.quantity, :NEW.quantity, SYSDATE);
   END;
   ```
-- **Status**: Defined in `oracle-init.sql`. The `audit_log` table exists in Oracle. Note: the trigger DDL uses Oracle's `/` PL/SQL terminator and must be run via `sqlplus` directly — it cannot be executed through `jdbcTemplate.execute()`.
-- **Migration**: PostgreSQL triggers require a separate trigger function:
+- **Status**: Defined in `oracle-init.sql`. Fires on every `PUT /api/inventory` call and on the soft-delete path (`DELETE /api/products/{id}` sets `is_active = false` which does not touch inventory, so the trigger fires only on direct inventory updates). Audit data is now exposed via `GET /api/audit-log`.
+- **Note**: Must be created via `sqlplus` — Oracle's `/` PL/SQL terminator cannot run through `jdbcTemplate.execute()`.
+- **Migration**: PostgreSQL requires a separate trigger function. Oracle's `INSERTING`/`UPDATING` conditionals become `TG_OP`:
   ```sql
   CREATE OR REPLACE FUNCTION inventory_audit_fn()
   RETURNS TRIGGER AS $$
   BEGIN
     INSERT INTO audit_log (table_name, operation, product_id, old_quantity, new_quantity, timestamp)
-    VALUES ('inventory',
-            TG_OP,
-            NEW.product_id,
-            OLD.quantity,
-            NEW.quantity,
-            NOW());
+    VALUES ('inventory', TG_OP, NEW.product_id, OLD.quantity, NEW.quantity, NOW());
     RETURN NEW;
   END;
   $$ LANGUAGE plpgsql;
@@ -185,22 +216,22 @@ This document lists all Oracle-specific elements currently implemented in the Sp
 
 ---
 
-## 8. Audit Log Table
+## 9. Audit Log Table
 
-- **File**: `oracle-init.sql`, mapped by `AuditLog.java`
+- **File**: `oracle-init.sql`, mapped by `AuditLog.java`, queried by `AuditLogRepository.java`
 - **Current Oracle DDL**:
   ```sql
   CREATE TABLE audit_log (
-    id        NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-    table_name VARCHAR2(50),
-    operation  VARCHAR2(10),
-    product_id NUMBER,
+    id           NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    table_name   VARCHAR2(50),
+    operation    VARCHAR2(10),
+    product_id   NUMBER,
     old_quantity NUMBER,
     new_quantity NUMBER,
-    timestamp  TIMESTAMP DEFAULT SYSDATE
+    timestamp    TIMESTAMP DEFAULT SYSDATE
   );
   ```
-- **Status**: Table exists in Oracle (`VALID`). JPA entity `AuditLog.java` maps to it using `@GeneratedValue(strategy = GenerationType.IDENTITY)`.
+- **Status**: Table exists in Oracle. Fully exposed via `GET /api/audit-log` (returns all rows ordered by timestamp DESC). `AuditLogRepository` uses a native `ORDER BY timestamp DESC` query.
 - **Migration**:
   ```sql
   CREATE TABLE audit_log (
@@ -217,11 +248,11 @@ This document lists all Oracle-specific elements currently implemented in the Sp
 
 ---
 
-## 9. Init Script Execution
+## 10. Init Script Execution
 
 - **File**: `OraclePostgresMigrationAppApplication.java`
-- **Current**: On startup, `oracle-init.sql` is read and each DDL statement (split by blank lines) is executed individually via `jdbcTemplate.execute()`. PL/SQL blocks (procedures, triggers) with Oracle's `/` terminator **cannot** be run this way — they must be created directly in Oracle via `sqlplus`.
-- **Migration**: For PostgreSQL, all DDL including functions and triggers can be executed via `jdbcTemplate.execute()` since PostgreSQL uses `$$` dollar-quoting instead of `/`.
+- **Current**: On startup, `oracle-init.sql` is split by blank lines and each DDL statement is executed individually via `jdbcTemplate.execute()`. PL/SQL blocks (procedures, triggers) with Oracle's `/` terminator **cannot** run this way — they must be created directly via `sqlplus`.
+- **Migration**: PostgreSQL uses `$$` dollar-quoting instead of `/`, so all DDL including functions and triggers can be executed via `jdbcTemplate.execute()` — no `sqlplus` step needed.
 
 ---
 
@@ -231,12 +262,13 @@ This document lists all Oracle-specific elements currently implemented in the Sp
 |---|------|---------|-----------------|
 | 1 | Dialect & driver | `application.yml` | Switch to `PostgreSQLDialect` + `postgresql` driver |
 | 2 | Sequences | `Product.java`, `Inventory.java` | Keep or switch to `IDENTITY` |
-| 3 | `ROWNUM` | `ProductRepository.java` | Replace with `LIMIT` |
-| 4 | `NVL` | `ProductRepository.java` | Replace with `COALESCE` |
-| 5 | `SYSDATE` | `InventoryRepository.java` | Replace with `NOW()` |
-| 6 | `NUMBER(1)` boolean | `Product.java` | Auto-handled by dialect switch |
-| 7 | Stored procedure | `oracle-init.sql`, `InventoryService.java` | Rewrite as PL/pgSQL function |
-| 8 | View | `oracle-init.sql`, `ProductRepository.java` | Change `= 1` to `= true` |
-| 9 | Trigger | `oracle-init.sql` | Rewrite with trigger function pattern |
-| 10 | Audit log table | `oracle-init.sql`, `AuditLog.java` | `NUMBER` → `BIGINT`, `VARCHAR2` → `VARCHAR`, `SYSDATE` → `NOW()` |
-| 11 | Init script runner | `OraclePostgresMigrationAppApplication.java` | Can run all DDL via `jdbcTemplate` in PostgreSQL |
+| 3 | `NVL` | `ProductRepository.java` | Replace with `COALESCE` in all native queries |
+| 4 | `SYSDATE` | `InventoryRepository.java` | Replace with `NOW()` |
+| 5 | `TO_TIMESTAMP` format mask | `InventoryRepository.java` | Use `::timestamp` cast instead |
+| 6 | `NUMBER(1)` boolean | `Product.java` + all native queries | Auto-handled by dialect; fix `= 1` → `= true` in native SQL |
+| 7 | Spring Data pagination | `ProductRepository.java` | Auto-handled by dialect switch (`ROWNUM` → `LIMIT/OFFSET`) |
+| 8 | Stored procedure (OUT param) | `oracle-init.sql`, `InventoryService.java` | Rewrite as PL/pgSQL function, replace `StoredProcedureQuery` |
+| 9 | View | `oracle-init.sql`, `ProductRepository.java` | Change `= 1` to `= true` |
+| 10 | Trigger | `oracle-init.sql` | Rewrite with trigger function + `TG_OP` |
+| 11 | Audit log table | `oracle-init.sql`, `AuditLog.java` | `NUMBER` → `BIGINT`, `VARCHAR2` → `VARCHAR`, `SYSDATE` → `NOW()` |
+| 12 | Init script runner | `OraclePostgresMigrationAppApplication.java` | Can run all DDL via `jdbcTemplate` in PostgreSQL |
