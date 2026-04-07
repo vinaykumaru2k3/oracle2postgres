@@ -130,6 +130,89 @@ body {
   margin-top: 12px;
 }
 
+/* Low stock alert banner */
+.low-stock-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #1a1a1a;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 6px;
+  margin-bottom: 18px;
+  font-size: 0.875rem;
+}
+
+.low-stock-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.low-stock-banner svg {
+  width: 16px;
+  height: 16px;
+  stroke: #fff;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+.low-stock-banner-items {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.low-stock-tag {
+  background: rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 1px 10px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.low-stock-banner-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.6);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+}
+.low-stock-banner-close:hover { color: #fff; }
+
+/* Threshold config row */
+.threshold-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.threshold-row input {
+  width: 70px;
+  padding: 5px 8px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  text-align: center;
+}
+
+.threshold-row input:focus {
+  outline: none;
+  border-color: #1a1a1a;
+}
+
 @media (max-width: 900px) {
   .dashboard-grid {
     grid-template-columns: 1fr;

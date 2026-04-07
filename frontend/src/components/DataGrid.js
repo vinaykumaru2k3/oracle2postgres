@@ -1,21 +1,68 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../styles/DataGrid.css';
 
 const PAGE_SIZE = 12;
 
 function DataGrid({ columns, rows, pageSize = PAGE_SIZE, loading, emptyText = 'No data found.' }) {
-  const [page, setPage] = useState(1);
-  const total = rows.length;
+  const [page, setPage]       = useState(1);
+  const [sortKey, setSortKey] = useState(null);
+  const [sortDir, setSortDir] = useState('asc');
+
+  useEffect(() => { setPage(1); }, [rows.length]);
+
+  const handleSort = (col) => {
+    if (!col.sortable) return;
+    if (sortKey === col.key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(col.key);
+      setSortDir('asc');
+    }
+    setPage(1);
+  };
+
+  const sorted = sortKey
+    ? [...rows].sort((a, b) => {
+        const av = a[sortKey], bv = b[sortKey];
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        const cmp = typeof av === 'number'
+          ? av - bv
+          : String(av).localeCompare(String(bv));
+        return sortDir === 'asc' ? cmp : -cmp;
+      })
+    : rows;
+
+  const total      = sorted.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const start = (page - 1) * pageSize;
-  const slice = rows.slice(start, start + pageSize);
+  const start      = (page - 1) * pageSize;
+  const slice      = sorted.slice(start, start + pageSize);
+  const goTo       = (p) => setPage(Math.min(Math.max(1, p), totalPages));
 
-  const goTo = (p) => setPage(Math.min(Math.max(1, p), totalPages));
+  // Skeleton rows
+  if (loading) {
+    return (
+      <div className="dg-wrapper">
+        <div className="dg-scroll">
+          <table className="dg-table">
+            <thead>
+              <tr>{columns.map(col => <th key={col.key} style={{ width: col.width }}>{col.label}</th>)}</tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <tr key={i} className="dg-skeleton-row">
+                  {columns.map(col => (
+                    <td key={col.key}><div className="dg-skeleton" /></td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
 
-  // Reset to page 1 when rows change
-  React.useEffect(() => { setPage(1); }, [rows.length]);
-
-  if (loading) return <div className="dg-loading">Loading...</div>;
   if (total === 0) return <div className="dg-empty">{emptyText}</div>;
 
   return (
@@ -25,7 +72,23 @@ function DataGrid({ columns, rows, pageSize = PAGE_SIZE, loading, emptyText = 'N
           <thead>
             <tr>
               {columns.map(col => (
-                <th key={col.key} style={{ width: col.width }}>{col.label}</th>
+                <th
+                  key={col.key}
+                  style={{ width: col.width }}
+                  className={col.sortable ? 'dg-sortable' : ''}
+                  onClick={() => handleSort(col)}
+                >
+                  <span className="dg-th-inner">
+                    {col.label}
+                    {col.sortable && (
+                      <span className="dg-sort-icon">
+                        {sortKey === col.key
+                          ? sortDir === 'asc' ? ' ↑' : ' ↓'
+                          : ' ↕'}
+                      </span>
+                    )}
+                  </span>
+                </th>
               ))}
             </tr>
           </thead>

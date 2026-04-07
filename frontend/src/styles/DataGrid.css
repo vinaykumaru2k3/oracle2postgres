@@ -111,3 +111,43 @@
   color: #bbb;
   font-size: 0.9rem;
 }
+
+/* Sorting */
+.dg-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.dg-sortable:hover {
+  background: #efefef;
+}
+
+.dg-th-inner {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.dg-sort-icon {
+  font-size: 0.7rem;
+  color: #bbb;
+}
+
+/* Skeleton */
+.dg-skeleton-row td {
+  padding: 13px 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.dg-skeleton {
+  height: 13px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

@@ -14,13 +14,108 @@
   font-size: 0.75rem;
   font-weight: 600;
 }
+.status-badge.active   { background: #ebebeb; color: #1a1a1a; }
+.status-badge.inactive { background: #f5f5f5; color: #999; }
 
-.status-badge.active  { background: #ebebeb; color: #1a1a1a; }
-.status-badge.inactive{ background: #f5f5f5; color: #999; }
-
-.loading {
-  text-align: center;
-  padding: 40px;
-  color: #bbb;
+/* Inline edit input */
+.inline-input {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #1a1a1a;
+  border-radius: 4px;
   font-size: 0.875rem;
+  font-family: inherit;
+  background: #fff;
+  outline: none;
+}
+
+/* Row action buttons */
+.row-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.act-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: 1px solid #e8e8e8;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.act-btn svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.act-btn.edit         { color: #555; }
+.act-btn.edit:hover   { background: #f5f5f5; border-color: #ccc; color: #1a1a1a; }
+
+.act-btn.delete       { color: #999; }
+.act-btn.delete:hover { background: #f5f5f5; border-color: #ccc; color: #333; }
+
+.act-btn.save         { color: #1a1a1a; border-color: #1a1a1a; }
+.act-btn.save:hover   { background: #1a1a1a; color: #fff; }
+
+.act-btn.cancel       { color: #999; }
+.act-btn.cancel:hover { background: #f5f5f5; color: #333; }
+
+.act-btn.delete-confirm {
+  width: auto;
+  padding: 0 14px;
+  background: #1a1a1a;
+  color: #fff;
+  border-color: #1a1a1a;
+  font-size: 0.82rem;
+}
+.act-btn.delete-confirm:hover { background: #333; }
+
+/* Confirm modal */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.confirm-box {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px 28px;
+  min-width: 300px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+
+.confirm-box p {
+  font-size: 0.95rem;
+  color: #1a1a1a;
+  margin: 0 0 6px 0;
+}
+
+.confirm-sub {
+  font-size: 0.82rem !important;
+  color: #999 !important;
+  margin-bottom: 20px !important;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }

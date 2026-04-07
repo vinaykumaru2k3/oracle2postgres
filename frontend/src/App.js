@@ -14,7 +14,6 @@ import InventoryForm from './components/InventoryForm';
 import DataGrid from './components/DataGrid';
 import Alert from './components/Alert';
 
-// SVG icons for stat cards
 const IconBox = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
@@ -38,45 +37,25 @@ const IconClock = (
   </svg>
 );
 
-// Inventory table columns
-const activeStockColumns = [
-  { key: 'id',          label: 'ID',           width: '70px' },
-  { key: 'name',        label: 'Product Name'               },
-  { key: 'price',       label: 'Price',        width: '110px',
-    render: v => `$${parseFloat(v).toFixed(2)}` },
-  { key: 'quantity',    label: 'Quantity',     width: '110px',
-    render: v => (
-      <span style={{
-        background: v < 10 ? '#ebebeb' : '#f0f0f0',
-        color: v < 10 ? '#555' : '#1a1a1a',
-        padding: '2px 10px', borderRadius: '10px',
-        fontWeight: 600, fontSize: '0.8rem'
-      }}>{v}</span>
-    )},
-  { key: 'lastUpdated', label: 'Last Updated', width: '180px',
-    render: v => new Date(v).toLocaleString() },
-];
-
-const recentColumns = [
-  { key: 'productId',   label: 'Product ID',   width: '100px' },
-  { key: 'name',        label: 'Product Name'               },
-  { key: 'quantity',    label: 'Quantity',     width: '100px', render: v => <strong>{v}</strong> },
-  { key: 'lastUpdated', label: 'Updated At',   width: '180px',
-    render: v => new Date(v).toLocaleString() },
-];
-
 function App() {
-  const [activeTab, setActiveTab]       = useState('dashboard');
-  const [searchQuery, setSearchQuery]   = useState('');
-  const [products, setProducts]         = useState([]);
-  const [inventory, setInventory]       = useState([]);
-  const [totalValue, setTotalValue]     = useState(0);
-  const [activeStock, setActiveStock]   = useState([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [activeTab, setActiveTab]         = useState('dashboard');
+  const [searchQuery, setSearchQuery]     = useState('');
+  const [threshold, setThreshold]         = useState(10);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  const [products, setProducts]           = useState([]);
+  const [inventory, setInventory]         = useState([]);
+  const [totalValue, setTotalValue]       = useState(0);
+  const [activeStock, setActiveStock]     = useState([]);
+  const [lowStock, setLowStock]           = useState([]);
+
+  const [loadingProducts, setLoadingProducts]   = useState(false);
   const [loadingInventory, setLoadingInventory] = useState(false);
-  const [alert, setAlert]               = useState(null);
+  const [alert, setAlert]                       = useState(null);
 
   const showAlert = (message, type = 'success') => setAlert({ message, type });
+
+  // ── Fetchers ──────────────────────────────────────────────
 
   const fetchProducts = useCallback(async () => {
     setLoadingProducts(true);
@@ -106,11 +85,30 @@ function App() {
     } catch (e) { console.error(e); }
   }, []);
 
+  const fetchLowStock = useCallback(async (t) => {
+    try {
+      const res = await fetch(`/api/inventory/low-stock?threshold=${t}`);
+      if (res.ok) setLowStock((await res.json()) || []);
+    } catch (e) { console.error(e); }
+  }, []);
+
   const refreshAll = useCallback(() => {
-    fetchProducts(); fetchInventory(); fetchTotalValue(); fetchActiveStock();
-  }, [fetchProducts, fetchInventory, fetchTotalValue, fetchActiveStock]);
+    fetchProducts();
+    fetchInventory();
+    fetchTotalValue();
+    fetchActiveStock();
+    fetchLowStock(threshold);
+  }, [fetchProducts, fetchInventory, fetchTotalValue, fetchActiveStock, fetchLowStock, threshold]);
 
   useEffect(() => { refreshAll(); }, [refreshAll]);
+
+  // Re-fetch low stock when threshold changes
+  useEffect(() => {
+    fetchLowStock(threshold);
+    setBannerDismissed(false);
+  }, [threshold, fetchLowStock]);
+
+  // ── Handlers ──────────────────────────────────────────────
 
   const handleCreateProduct = async (formData) => {
     try {
@@ -121,8 +119,30 @@ function App() {
       });
       if (!res.ok) throw new Error();
       showAlert('Product created successfully.');
-      fetchProducts(); fetchTotalValue(); fetchActiveStock();
+      fetchProducts(); fetchTotalValue(); fetchActiveStock(); fetchLowStock(threshold);
     } catch { showAlert('Failed to create product.', 'error'); }
+  };
+
+  const handleUpdateProduct = async (id, data) => {
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error();
+      showAlert('Product updated.');
+      fetchProducts(); fetchTotalValue(); fetchActiveStock(); fetchLowStock(threshold);
+    } catch { showAlert('Failed to update product.', 'error'); }
+  };
+
+  const handleDeleteProduct = async (id) => {
+    try {
+      const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      showAlert('Product deactivated.');
+      fetchProducts(); fetchTotalValue(); fetchActiveStock(); fetchLowStock(threshold);
+    } catch { showAlert('Failed to deactivate product.', 'error'); }
   };
 
   const handleUpdateInventory = async (formData) => {
@@ -138,15 +158,15 @@ function App() {
       });
       if (!res.ok) throw new Error();
       showAlert('Inventory updated successfully.');
-      fetchInventory(); fetchTotalValue(); fetchActiveStock();
+      fetchInventory(); fetchTotalValue(); fetchActiveStock(); fetchLowStock(threshold);
     } catch { showAlert('Failed to update inventory.', 'error'); }
   };
 
+  // ── Derived data ──────────────────────────────────────────
+
   const totalQtyInHand = activeStock.reduce((s, i) => s + (i.quantity || 0), 0);
-  const lowStockItems  = activeStock.filter(i => i.quantity < 10).length;
   const activeItems    = products.filter(p => p.isActive).length;
 
-  // Search filter — case-insensitive match on product name
   const q = searchQuery.trim().toLowerCase();
   const filteredProducts    = q ? products.filter(p => p.name.toLowerCase().includes(q)) : products;
   const filteredActiveStock = q ? activeStock.filter(i => i.name.toLowerCase().includes(q)) : activeStock;
@@ -157,7 +177,6 @@ function App() {
       })
     : inventory;
 
-  // Enrich inventory rows with product name for the recent table
   const recentRows = [...filteredInventory]
     .sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated))
     .map(item => ({
@@ -166,7 +185,47 @@ function App() {
       name: products.find(p => p.id === item.productId)?.name || '—',
     }));
 
-  const activeStockRows = filteredActiveStock.map(i => ({ ...i, _key: i.id }));
+  // Active stock rows — add totalValue column (price × quantity)
+  const activeStockRows = filteredActiveStock.map(i => ({
+    ...i,
+    _key: i.id,
+    totalValue: (parseFloat(i.price || 0) * (i.quantity || 0)).toFixed(2),
+  }));
+
+  // ── Table column definitions ──────────────────────────────
+
+  const activeStockColumns = [
+    { key: 'id',          label: 'ID',            width: '70px',  sortable: true },
+    { key: 'name',        label: 'Product Name',                  sortable: true },
+    { key: 'price',       label: 'Price',         width: '100px', sortable: true,
+      render: v => `$${parseFloat(v).toFixed(2)}` },
+    { key: 'quantity',    label: 'Quantity',      width: '100px', sortable: true,
+      render: (v) => (
+        <span style={{
+          background: v < threshold ? '#ebebeb' : '#f0f0f0',
+          color: v < threshold ? '#555' : '#1a1a1a',
+          padding: '2px 10px', borderRadius: '10px',
+          fontWeight: 600, fontSize: '0.8rem',
+        }}>{v}</span>
+      )},
+    { key: 'totalValue',  label: 'Total Value',   width: '120px', sortable: true,
+      render: v => `$${parseFloat(v).toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
+    { key: 'lastUpdated', label: 'Last Updated',  width: '170px', sortable: true,
+      render: v => new Date(v).toLocaleString() },
+  ];
+
+  const recentColumns = [
+    { key: 'productId',   label: 'Product ID',   width: '100px', sortable: true },
+    { key: 'name',        label: 'Product Name',                  sortable: true },
+    { key: 'quantity',    label: 'Quantity',     width: '100px', sortable: true,
+      render: v => <strong>{v}</strong> },
+    { key: 'lastUpdated', label: 'Updated At',   width: '170px', sortable: true,
+      render: v => new Date(v).toLocaleString() },
+  ];
+
+  // ── Low stock banner ──────────────────────────────────────
+
+  const showBanner = !bannerDismissed && lowStock.length > 0;
 
   return (
     <div className="app-layout">
@@ -178,6 +237,28 @@ function App() {
         <main className="main-content">
           {alert && <Alert message={alert.message} type={alert.type} onClose={() => setAlert(null)} />}
 
+          {/* Low stock banner — shown on all tabs */}
+          {showBanner && (
+            <div className="low-stock-banner">
+              <div className="low-stock-banner-left">
+                <svg viewBox="0 0 24 24">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <div>
+                  <strong>{lowStock.length} item{lowStock.length > 1 ? 's' : ''} below threshold ({threshold} units)</strong>
+                  <div className="low-stock-banner-items">
+                    {lowStock.slice(0, 5).map(i => (
+                      <span key={i.id} className="low-stock-tag">{i.name} — {i.quantity}</span>
+                    ))}
+                    {lowStock.length > 5 && <span className="low-stock-tag">+{lowStock.length - 5} more</span>}
+                  </div>
+                </div>
+              </div>
+              <button className="low-stock-banner-close" onClick={() => setBannerDismissed(true)}>✕</button>
+            </div>
+          )}
+
           {/* ── DASHBOARD ── */}
           {activeTab === 'dashboard' && (
             <>
@@ -187,52 +268,43 @@ function App() {
                   <button className="btn-secondary" onClick={refreshAll}>↻ Refresh</button>
                 </div>
               </div>
-
               <div className="dashboard-grid">
-                <StatCard icon={IconBox}    title="Total Products"    value={filteredProducts.length}  subtitle={`${activeItems} active`} />
-                <StatCard icon={IconDollar} title="Inventory Value"   value={`$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`} subtitle="Active stock" />
-                <StatCard icon={IconAlert}  title="Low Stock Items"   value={lowStockItems}    subtitle="Below 10 units" />
-                <StatCard icon={IconClock}  title="Recent Updates"    value={filteredInventory.length} subtitle="Last 24 hours" />
-
+                <StatCard icon={IconBox}    title="Total Products"  value={filteredProducts.length} subtitle={`${activeItems} active`} />
+                <StatCard icon={IconDollar} title="Inventory Value" value={`$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`} subtitle="Active stock" />
+                <StatCard icon={IconAlert}  title="Low Stock Items" value={lowStock.length} subtitle={`Below ${threshold} units`} />
+                <StatCard icon={IconClock}  title="Recent Updates"  value={filteredInventory.length} subtitle="Last 24 hours" />
                 <div className="full-width">
                   <SalesActivity inventory={inventory} products={products} />
                 </div>
-
                 <InventorySummary data={{
                   quantityInHand: totalQtyInHand.toLocaleString(),
                   quantityToBeReceived: '—',
-                  lowStockItems,
+                  lowStockItems: lowStock.length,
                   activeItems,
                 }} />
-
                 <ProductDetails data={{
-                  lowStockItems, activeItems,
+                  lowStockItems: lowStock.length, activeItems,
                   allItems: products.length,
                   unconfirmedItems: products.filter(p => !p.isActive).length,
                 }} />
-
-                <div className="full-width">
-                  <TopSellingItems activeStock={activeStock} />
-                </div>
-
-                <div className="full-width">
-                  <OrderTables inventory={inventory} products={products} />
-                </div>
+                <div className="full-width"><TopSellingItems activeStock={activeStock} /></div>
+                <div className="full-width"><OrderTables inventory={inventory} products={products} /></div>
               </div>
             </>
           )}
 
-          {/* ── PRODUCTS ── */}
+          {/* ── ITEMS ── */}
           {activeTab === 'products' && (
             <>
-              <div className="page-header">
-                <h2>Items</h2>
-              </div>
+              <div className="page-header"><h2>Items</h2></div>
               <div className="products-page">
-                <div id="product-form-section">
-                  <ProductForm onSubmit={handleCreateProduct} loading={loadingProducts} />
-                </div>
-                <ProductList products={filteredProducts} loading={loadingProducts} />
+                <ProductForm onSubmit={handleCreateProduct} loading={loadingProducts} />
+                <ProductList
+                  products={filteredProducts}
+                  loading={loadingProducts}
+                  onUpdate={handleUpdateProduct}
+                  onDelete={handleDeleteProduct}
+                />
               </div>
             </>
           )}
@@ -242,6 +314,16 @@ function App() {
             <>
               <div className="page-header"><h2>Inventory</h2></div>
               <div className="inventory-page">
+                {/* Threshold config */}
+                <div className="threshold-row">
+                  <span>Low stock threshold:</span>
+                  <input
+                    type="number" min="1" value={threshold}
+                    onChange={e => setThreshold(Number(e.target.value) || 1)}
+                  />
+                  <span>units</span>
+                </div>
+
                 <InventoryForm onSubmit={handleUpdateInventory} loading={loadingInventory} products={products} />
 
                 <div className="card">
@@ -276,18 +358,16 @@ function App() {
               <div className="dashboard-grid">
                 <StatCard icon={IconDollar} title="Total Inventory Value" value={`$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`} subtitle="All active products" />
                 <StatCard icon={IconBox}    title="Total Stock Units"     value={totalQtyInHand.toLocaleString()} subtitle="Across all products" />
-                <StatCard icon={IconAlert}  title="Low Stock Alerts"      value={lowStockItems} subtitle="Items below 10 units" />
-                <StatCard icon={IconClock}  title="Active Products"       value={activeItems}   subtitle={`of ${products.length} total`} />
+                <StatCard icon={IconAlert}  title="Low Stock Alerts"      value={lowStock.length} subtitle={`Below ${threshold} units`} />
+                <StatCard icon={IconClock}  title="Active Products"       value={activeItems} subtitle={`of ${products.length} total`} />
                 <div className="full-width">
                   <ProductDetails data={{
-                    lowStockItems, activeItems,
+                    lowStockItems: lowStock.length, activeItems,
                     allItems: products.length,
                     unconfirmedItems: products.filter(p => !p.isActive).length,
                   }} />
                 </div>
-                <div className="full-width">
-                  <TopSellingItems activeStock={activeStock} />
-                </div>
+                <div className="full-width"><TopSellingItems activeStock={activeStock} /></div>
               </div>
             </>
           )}
