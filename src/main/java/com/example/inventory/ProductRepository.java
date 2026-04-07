@@ -21,13 +21,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
   List<Object[]> findActiveProductsWithStock();
 
   // Low stock: active products whose inventory quantity is below threshold
-  @Query(value = """
-      SELECT p.id, p.name, p.price, i.quantity, i.last_updated
-      FROM product p
-      JOIN inventory i ON p.id = i.product_id
-      WHERE NVL(p.is_active, 0) = 1
-        AND i.quantity < :threshold
-      ORDER BY i.quantity ASC
-      """, nativeQuery = true)
+  @Query(value = "SELECT p.id, p.name, p.price, i.quantity, i.last_updated" +
+      " FROM product p JOIN inventory i ON p.id = i.product_id" +
+      " WHERE NVL(p.is_active, 0) = 1 AND i.quantity < :threshold" +
+      " ORDER BY i.quantity ASC", nativeQuery = true)
   List<Object[]> findLowStockProducts(@Param("threshold") int threshold);
 }

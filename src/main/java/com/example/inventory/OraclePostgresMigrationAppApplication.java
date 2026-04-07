@@ -39,8 +39,8 @@ public class OraclePostgresMigrationAppApplication {
         ClassPathResource resource = new ClassPathResource("oracle-init.sql");
         byte[] bytes = FileCopyUtils.copyToByteArray(resource.getInputStream());
         String content = new String(bytes, StandardCharsets.UTF_8);
-        // Split on blank lines so each DDL statement runs separately
-        String[] statements = content.split("\n\n+");
+        // Normalize line endings then split on blank lines
+        String[] statements = content.replace("\r\n", "\n").replace("\r", "\n").split("\n\n+");
         for (String stmt : statements) {
           String trimmed = stmt.trim();
           if (!trimmed.isEmpty()) {
