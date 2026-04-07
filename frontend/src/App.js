@@ -67,6 +67,7 @@ const recentColumns = [
 
 function App() {
   const [activeTab, setActiveTab]       = useState('dashboard');
+  const [searchQuery, setSearchQuery]   = useState('');
   const [products, setProducts]         = useState([]);
   const [inventory, setInventory]       = useState([]);
   const [totalValue, setTotalValue]     = useState(0);
@@ -145,8 +146,19 @@ function App() {
   const lowStockItems  = activeStock.filter(i => i.quantity < 10).length;
   const activeItems    = products.filter(p => p.isActive).length;
 
+  // Search filter — case-insensitive match on product name
+  const q = searchQuery.trim().toLowerCase();
+  const filteredProducts    = q ? products.filter(p => p.name.toLowerCase().includes(q)) : products;
+  const filteredActiveStock = q ? activeStock.filter(i => i.name.toLowerCase().includes(q)) : activeStock;
+  const filteredInventory   = q
+    ? inventory.filter(i => {
+        const name = products.find(p => p.id === i.productId)?.name || '';
+        return name.toLowerCase().includes(q);
+      })
+    : inventory;
+
   // Enrich inventory rows with product name for the recent table
-  const recentRows = [...inventory]
+  const recentRows = [...filteredInventory]
     .sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated))
     .map(item => ({
       ...item,
@@ -154,14 +166,14 @@ function App() {
       name: products.find(p => p.id === item.productId)?.name || '—',
     }));
 
-  const activeStockRows = activeStock.map(i => ({ ...i, _key: i.id }));
+  const activeStockRows = filteredActiveStock.map(i => ({ ...i, _key: i.id }));
 
   return (
     <div className="app-layout">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <div className="main-wrapper">
-        <Header totalValue={totalValue} />
+        <Header totalValue={totalValue} searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
         <main className="main-content">
           {alert && <Alert message={alert.message} type={alert.type} onClose={() => setAlert(null)} />}
@@ -177,10 +189,10 @@ function App() {
               </div>
 
               <div className="dashboard-grid">
-                <StatCard icon={IconBox}    title="Total Products"    value={products.length}  subtitle={`${activeItems} active`} />
+                <StatCard icon={IconBox}    title="Total Products"    value={filteredProducts.length}  subtitle={`${activeItems} active`} />
                 <StatCard icon={IconDollar} title="Inventory Value"   value={`$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`} subtitle="Active stock" />
                 <StatCard icon={IconAlert}  title="Low Stock Items"   value={lowStockItems}    subtitle="Below 10 units" />
-                <StatCard icon={IconClock}  title="Recent Updates"    value={inventory.length} subtitle="Last 24 hours" />
+                <StatCard icon={IconClock}  title="Recent Updates"    value={filteredInventory.length} subtitle="Last 24 hours" />
 
                 <div className="full-width">
                   <SalesActivity inventory={inventory} products={products} />
@@ -220,7 +232,7 @@ function App() {
                 <div id="product-form-section">
                   <ProductForm onSubmit={handleCreateProduct} loading={loadingProducts} />
                 </div>
-                <ProductList products={products} loading={loadingProducts} />
+                <ProductList products={filteredProducts} loading={loadingProducts} />
               </div>
             </>
           )}
