@@ -1,0 +1,26 @@
+.product-list { padding: 20px; }
+
+.product-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-badge.active  { background: #ebebeb; color: #1a1a1a; }
+.status-badge.inactive{ background: #f5f5f5; color: #999; }
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #bbb;
+  font-size: 0.875rem;
+}

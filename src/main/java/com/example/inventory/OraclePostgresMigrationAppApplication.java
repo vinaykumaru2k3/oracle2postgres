@@ -6,8 +6,12 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.util.FileCopyUtils;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 
 @SpringBootApplication
@@ -19,6 +23,9 @@ public class OraclePostgresMigrationAppApplication {
   @Autowired
   private InventoryRepository inventoryRepository;
 
+  @Autowired
+  private JdbcTemplate jdbcTemplate;
+
   public static void main(String[] args) {
     Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
     dotenv.entries().forEach(entry -> System.setProperty(entry.getKey(), entry.getValue()));
@@ -28,6 +35,27 @@ public class OraclePostgresMigrationAppApplication {
   @Bean
   CommandLineRunner initDatabase() {
     return args -> {
+      try {
+        ClassPathResource resource = new ClassPathResource("oracle-init.sql");
+        byte[] bytes = FileCopyUtils.copyToByteArray(resource.getInputStream());
+        String content = new String(bytes, StandardCharsets.UTF_8);
+        // Split on blank lines so each DDL statement runs separately
+        String[] statements = content.split("\n\n+");
+        for (String stmt : statements) {
+          String trimmed = stmt.trim();
+          if (!trimmed.isEmpty()) {
+            try {
+              jdbcTemplate.execute(trimmed);
+            } catch (Exception ex) {
+              System.out.println("DDL skipped (may already exist): " + ex.getMessage());
+            }
+          }
+        }
+        System.out.println("Oracle init script executed.");
+      } catch (Exception e) {
+        System.out.println("Oracle init script load failed: " + e.getMessage());
+      }
+
       if (productRepository.count() == 0) {
         // Sample products
         Product p1 = new Product();

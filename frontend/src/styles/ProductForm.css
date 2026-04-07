@@ -1,0 +1,64 @@
+.product-form { padding: 20px; }
+
+.product-form .form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 14px;
+  margin-top: 14px;
+  align-items: end;
+}
+
+.product-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.product-form .form-group label {
+  font-size: 0.72rem;
+  color: #888;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.product-form .form-group input {
+  padding: 9px 12px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 0.875rem;
+  background: #fafafa;
+  transition: border-color 0.15s;
+  font-family: inherit;
+  color: #1a1a1a;
+}
+
+.product-form .form-group input:focus {
+  outline: none;
+  background: #fff;
+  border-color: #1a1a1a;
+}
+
+.product-form .form-group input::placeholder { color: #ccc; }
+
+.product-form .btn-submit {
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  padding: 9px 18px;
+  border-radius: 5px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+  height: 38px;
+  font-family: inherit;
+}
+
+.product-form .btn-submit:hover { background: #333; }
+.product-form .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (max-width: 700px) {
+  .product-form .form { grid-template-columns: 1fr; }
+}

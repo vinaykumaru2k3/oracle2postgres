@@ -1,0 +1,59 @@
+.sales-activity { padding: 20px; }
+
+.sales-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.sales-card {
+  background: #f5f5f5;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  padding: 16px 14px;
+  text-align: center;
+}
+
+.sales-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.sales-icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: #555;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sales-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1;
+}
+
+.sales-unit {
+  font-size: 0.7rem;
+  color: #bbb;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin: 4px 0;
+}
+
+.sales-label {
+  font-size: 0.8rem;
+  color: #666;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+@media (max-width: 900px) {
+  .sales-grid { grid-template-columns: repeat(2, 1fr); }
+}

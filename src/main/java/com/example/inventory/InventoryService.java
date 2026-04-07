@@ -1,9 +1,14 @@
 package com.example.inventory;
 
+import java.math.BigDecimal;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.ParameterMode;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.StoredProcedureQuery;
 
 @Service
 public class InventoryService {
@@ -13,6 +18,9 @@ public class InventoryService {
 
   @Autowired
   private InventoryRepository inventoryRepository;
+
+  @PersistenceContext
+  private EntityManager entityManager;
 
   @Transactional
   public Product createProduct(Product product) {
@@ -47,5 +55,12 @@ public class InventoryService {
 
   public List<Inventory> getRecentInventoryUpdates() {
     return inventoryRepository.findRecentUpdates();
+  }
+
+  public BigDecimal getTotalInventoryValue() {
+    StoredProcedureQuery query = entityManager.createStoredProcedureQuery("calculate_total_value");
+    query.registerStoredProcedureParameter(1, BigDecimal.class, ParameterMode.OUT);
+    query.execute();
+    return (BigDecimal) query.getOutputParameterValue(1);
   }
 }
