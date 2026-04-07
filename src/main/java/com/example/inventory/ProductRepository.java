@@ -14,6 +14,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
   @Query(value = "SELECT * FROM product WHERE NVL(is_active, 0) = 1", nativeQuery = true)
   List<Product> findActiveProducts();
 
-  @Query(value = "SELECT * FROM active_products_with_stock WHERE ROWNUM <= 10", nativeQuery = true)
+  @Query(value = "SELECT * FROM active_products_with_stock ORDER BY quantity DESC", nativeQuery = true)
   List<Object[]> findActiveProductsWithStock();
 }

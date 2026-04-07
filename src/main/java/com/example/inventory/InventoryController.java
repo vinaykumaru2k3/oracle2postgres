@@ -1,6 +1,8 @@
 package com.example.inventory;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api")
+@CrossOrigin(origins = "*")
 public class InventoryController {
 
   @Autowired
@@ -51,9 +54,21 @@ public class InventoryController {
   @GetMapping("/active-stock")
   public ResponseEntity<List<Map<String, Object>>> getActiveProductsWithStock() {
     List<Object[]> results = productRepository.findActiveProductsWithStock();
-    List<Map<String, Object>> list = results.stream().map(row -> Map.of(
-        "id", row[0], "name", row[1], "price", row[2], "quantity", row[3], "lastUpdated", row[4]
-    )).collect(Collectors.toList());
+    List<Map<String, Object>> list = results.stream().map(row -> {
+      Map<String, Object> item = new LinkedHashMap<>();
+      item.put("id", row[0]);
+      item.put("name", row[1]);
+      item.put("price", row[2]);
+      item.put("quantity", row[3]);
+      // Convert Timestamp/Date to LocalDateTime string cleanly
+      Object ts = row[4];
+      if (ts instanceof java.sql.Timestamp) {
+        item.put("lastUpdated", ((java.sql.Timestamp) ts).toLocalDateTime().toString());
+      } else {
+        item.put("lastUpdated", ts != null ? ts.toString() : null);
+      }
+      return item;
+    }).collect(Collectors.toList());
     return ResponseEntity.ok(list);
   }
 }

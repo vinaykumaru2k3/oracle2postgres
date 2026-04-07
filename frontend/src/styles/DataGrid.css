@@ -1,0 +1,113 @@
+.dg-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.dg-scroll {
+  overflow-x: auto;
+}
+
+.dg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.dg-table thead tr {
+  background: #f5f5f5;
+  border-bottom: 2px solid #e8e8e8;
+}
+
+.dg-table th {
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.dg-table td {
+  padding: 11px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #2a2a2a;
+  vertical-align: middle;
+}
+
+.dg-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.dg-table tbody tr:hover td {
+  background: #fafafa;
+}
+
+.dg-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.dg-info {
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.dg-pagination {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.dg-btn {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid #e8e8e8;
+  background: #fff;
+  color: #444;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dg-btn:hover:not(:disabled) {
+  background: #f0f0f0;
+  border-color: #ccc;
+}
+
+.dg-btn.active {
+  background: #1a1a1a;
+  color: #fff;
+  border-color: #1a1a1a;
+  font-weight: 600;
+}
+
+.dg-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.dg-ellipsis {
+  font-size: 0.82rem;
+  color: #bbb;
+  padding: 0 4px;
+}
+
+.dg-loading,
+.dg-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: #bbb;
+  font-size: 0.9rem;
+}
