@@ -62,36 +62,46 @@ public class InventoryService {
   }
 
   // ── Inventory ─────────────────────────────────────────────
+    @Transactional
+    public Inventory updateInventory(Inventory req) {
+        if (req.getProduct() == null || req.getProduct().getId() == null) {
+            throw new IllegalArgumentException("Product must be provided");
+        }
 
-  @Transactional
-  public Inventory updateInventory(Inventory req) {
-    Product product = productRepository.findById(req.getProductId())
-        .orElseThrow(() -> new IllegalArgumentException("Product " + req.getProductId() + " does not exist"));
+        Long productId = req.getProduct().getId();
 
-    Inventory inv = inventoryRepository.findByProductId(req.getProductId())
-        .orElseGet(() -> {
-          Inventory i = new Inventory();
-          i.setProductId(product.getId());
-          i.setQuantity(0);
-          return i;
-        });
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("Product " + productId + " not found"));
 
-    int newQty = (inv.getQuantity() == null ? 0 : inv.getQuantity())
-               + (req.getQuantity()  == null ? 0 : req.getQuantity());
-    inv.setQuantity(newQty);
-    inv.setLastUpdated(req.getLastUpdated() != null
-        ? req.getLastUpdated() : java.time.LocalDateTime.now());
+        Inventory inv = inventoryRepository.findByProduct_Id(productId)
+                .orElseGet(() -> {
+                    Inventory i = new Inventory();
+                    i.setProduct(product);
+                    i.setQuantity(0);
+                    return i;
+                });
 
-    return inventoryRepository.save(inv);
-  }
+        int newQty = (inv.getQuantity() == null ? 0 : inv.getQuantity())
+                + (req.getQuantity() == null ? 0 : req.getQuantity());
+
+        inv.setQuantity(newQty);
+        inv.setLastUpdated(req.getLastUpdated() != null
+                ? req.getLastUpdated()
+                : java.time.LocalDateTime.now());
+
+        return inventoryRepository.save(inv);
+    }
 
   public List<Inventory> getRecentInventoryUpdates() {
     return inventoryRepository.findRecentUpdates();
   }
 
-  public List<Inventory> getInventoryByDateRange(String from, String to) {
-    return inventoryRepository.findByDateRange(from, to);
-  }
+    public List<Inventory> getInventoryByDateRange(String from, String to) {
+        return inventoryRepository.findByDateRange(
+                java.time.LocalDateTime.parse(from),
+                java.time.LocalDateTime.parse(to)
+        );
+    }
 
   // ── Low stock ─────────────────────────────────────────────
 
@@ -101,12 +111,11 @@ public class InventoryService {
 
   // ── Value (stored procedure) ──────────────────────────────
 
-  public BigDecimal getTotalInventoryValue() {
-    StoredProcedureQuery query = entityManager.createStoredProcedureQuery("calculate_total_value");
-    query.registerStoredProcedureParameter(1, BigDecimal.class, ParameterMode.OUT);
-    query.execute();
-    return (BigDecimal) query.getOutputParameterValue(1);
-  }
+    public BigDecimal getTotalInventoryValue() {
+        return (BigDecimal) entityManager
+                .createNativeQuery("SELECT calculate_total_value()")
+                .getSingleResult();
+    }
 
   // ── Summary ───────────────────────────────────────────────
 
@@ -129,6 +138,6 @@ public class InventoryService {
   // ── Audit log ─────────────────────────────────────────────
 
   public List<AuditLog> getAuditLog() {
-    return auditLogRepository.findAllOrderByTimestampDesc();
+    return auditLogRepository.findAllByOrderByTimestampDesc();
   }
 }

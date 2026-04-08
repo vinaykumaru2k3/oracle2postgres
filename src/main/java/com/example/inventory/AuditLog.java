@@ -16,7 +16,8 @@ public class AuditLog {
   @Column(name = "table_name")
   private String tableName;
 
-  private String operation;
+    @Column(nullable = false)
+    private String operation;
 
   @Column(name = "product_id")
   private Long productId;

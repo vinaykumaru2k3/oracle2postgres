@@ -9,15 +9,14 @@ import lombok.Data;
 @Data
 public class Product {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "product_seq")
-  @SequenceGenerator(name = "product_seq", sequenceName = "product_seq", allocationSize = 1)
-  private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-  private String name;
+    private String name;
 
-  private BigDecimal price;
+    private BigDecimal price;
 
-  @Column(name = "is_active")
-  private Boolean isActive;
+    @Column(name = "is_active")
+    private Boolean isActive;
 }

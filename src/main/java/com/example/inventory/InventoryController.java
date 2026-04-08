@@ -89,12 +89,14 @@ public class InventoryController {
     return inventoryService.getRecentInventoryUpdates();
   }
 
-  // GET /api/inventory/range?from=2024-01-01T00:00:00&to=2024-12-31T23:59:59
   @GetMapping("/inventory/range")
   public ResponseEntity<?> getInventoryByRange(
-      @RequestParam String from,
-      @RequestParam String to) {
-    return ResponseEntity.ok(inventoryService.getInventoryByDateRange(from, to));
+          @RequestParam String from,
+          @RequestParam String to) {
+
+      return ResponseEntity.ok(
+              inventoryService.getInventoryByDateRange(from, to)
+      );
   }
 
   // ── Low stock ─────────────────────────────────────────────

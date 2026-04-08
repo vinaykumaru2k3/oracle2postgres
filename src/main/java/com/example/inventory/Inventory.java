@@ -1,3 +1,4 @@
+// src/main/java/com/example/inventory/Inventory.java
 package com.example.inventory;
 
 import jakarta.persistence.*;
@@ -9,16 +10,16 @@ import lombok.Data;
 @Data
 public class Inventory {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "inventory_seq")
-  @SequenceGenerator(name = "inventory_seq", sequenceName = "inventory_seq", allocationSize = 1)
-  private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-  @Column(name = "product_id", unique = true, nullable = false)
-  private Long productId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "product_id", nullable = false, unique = true)
+    private Product product;
 
-  private Integer quantity;
+    private Integer quantity;
 
-  @Column(name = "last_updated")
-  private LocalDateTime lastUpdated;
+    @Column(name = "last_updated")
+    private LocalDateTime lastUpdated;
 }
