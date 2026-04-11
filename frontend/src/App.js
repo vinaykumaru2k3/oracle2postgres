@@ -59,14 +59,20 @@ function App() {
 
   const fetchProducts = useCallback(async () => {
     setLoadingProducts(true);
-    try { setProducts(await (await fetch('/api/products')).json()); }
+    try { 
+      const res = await fetch('/api/products');
+      if (res.ok) setProducts((await res.json()) || []);
+    }
     catch (e) { console.error(e); }
     finally { setLoadingProducts(false); }
   }, []);
 
   const fetchInventory = useCallback(async () => {
     setLoadingInventory(true);
-    try { setInventory(await (await fetch('/api/inventory/recent')).json()); }
+    try { 
+      const res = await fetch('/api/inventory/recent');
+      if (res.ok) setInventory((await res.json()) || []);
+    }
     catch (e) { console.error(e); }
     finally { setLoadingInventory(false); }
   }, []);
@@ -164,29 +170,29 @@ function App() {
 
   // ── Derived data ──────────────────────────────────────────
 
-  const totalQtyInHand = activeStock.reduce((s, i) => s + (i.quantity || 0), 0);
-  const activeItems    = products.filter(p => p.isActive).length;
+  const totalQtyInHand = (activeStock || []).reduce((s, i) => s + (i.quantity || 0), 0);
+  const activeItems    = (products || []).filter(p => p.isActive).length;
 
   const q = searchQuery.trim().toLowerCase();
-  const filteredProducts    = q ? products.filter(p => p.name.toLowerCase().includes(q)) : products;
-  const filteredActiveStock = q ? activeStock.filter(i => i.name.toLowerCase().includes(q)) : activeStock;
+  const filteredProducts    = q ? (products || []).filter(p => p.name.toLowerCase().includes(q)) : (products || []);
+  const filteredActiveStock = q ? (activeStock || []).filter(i => i.name.toLowerCase().includes(q)) : (activeStock || []);
   const filteredInventory   = q
-    ? inventory.filter(i => {
-        const name = products.find(p => p.id === i.productId)?.name || '';
+    ? (inventory || []).filter(i => {
+        const name = (products || []).find(p => p.id === i.productId)?.name || '';
         return name.toLowerCase().includes(q);
       })
-    : inventory;
+    : (inventory || []);
 
-  const recentRows = [...filteredInventory]
+  const recentRows = [...(filteredInventory || [])]
     .sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated))
     .map(item => ({
       ...item,
       _key: item.id,
-      name: products.find(p => p.id === item.productId)?.name || '—',
+      name: (products || []).find(p => p.id === item.productId)?.name || '—',
     }));
 
   // Active stock rows — add totalValue column (price × quantity)
-  const activeStockRows = filteredActiveStock.map(i => ({
+  const activeStockRows = (filteredActiveStock || []).map(i => ({
     ...i,
     _key: i.id,
     totalValue: (parseFloat(i.price || 0) * (i.quantity || 0)).toFixed(2),
