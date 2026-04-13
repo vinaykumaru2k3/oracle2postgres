@@ -4,7 +4,7 @@ import '../styles/OrderTables.css';
 function OrderTables({ inventory = [], products = [] }) {
   const totalQty = inventory.reduce((s, i) => s + (i.quantity || 0), 0);
   const totalCost = products.reduce((s, p) => {
-    const stock = inventory.find(i => i.productId === p.id);
+    const stock = inventory.find(i => (i.product?.id || i.productId) === p.id);
     return s + (p.price || 0) * (stock?.quantity || 0);
   }, 0);
 

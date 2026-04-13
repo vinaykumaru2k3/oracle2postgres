@@ -157,7 +157,7 @@ function App() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          productId: parseInt(formData.productId),
+          product: { id: parseInt(formData.productId) },
           quantity: parseInt(formData.quantity),
           lastUpdated: new Date().toISOString(),
         }),
@@ -178,18 +178,23 @@ function App() {
   const filteredActiveStock = q ? (activeStock || []).filter(i => i.name.toLowerCase().includes(q)) : (activeStock || []);
   const filteredInventory   = q
     ? (inventory || []).filter(i => {
-        const name = (products || []).find(p => p.id === i.productId)?.name || '';
+        const productId = i.product?.id || i.productId;
+        const name = (products || []).find(p => p.id === productId)?.name || '';
         return name.toLowerCase().includes(q);
       })
     : (inventory || []);
 
   const recentRows = [...(filteredInventory || [])]
     .sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated))
-    .map(item => ({
-      ...item,
-      _key: item.id,
-      name: (products || []).find(p => p.id === item.productId)?.name || '—',
-    }));
+    .map(item => {
+      const productId = item.product?.id || item.productId;
+      return {
+        ...item,
+        productId,
+        _key: item.id,
+        name: (products || []).find(p => p.id === productId)?.name || '—',
+      };
+    });
 
   // Active stock rows — add totalValue column (price × quantity)
   const activeStockRows = (filteredActiveStock || []).map(i => ({
