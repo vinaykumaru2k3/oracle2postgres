@@ -201,6 +201,35 @@ List<Inventory> findRecentUpdates();
 
 ---
 
+### 📄 File: `AuditLogRepository.java`
+
+**Purpose:** 
+- Provides the data access layer for the `AuditLog` entity.
+
+**Responsibilities:**
+- Fetching historical logs from the `audit_log` table.
+- Supporting sorting of logs, specifically by timestamp in descending order to show the latest changes first.
+
+**Code Snippet:**
+```java
+@Repository
+public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
+    List<AuditLog> findAllByOrderByTimestampDesc();
+}
+```
+
+**Key Components:**
+- `findAllByOrderByTimestampDesc()`: A derived query method that retrieves all audit logs sorted by the `timestamp` field in descending order.
+
+**Dependencies:**
+- Extends `JpaRepository` from Spring Data JPA.
+- Depends on the `AuditLog` entity.
+
+**Interactions:**
+- Used by `InventoryService` to provide the full history of inventory movements for the frontend or reporting.
+
+---
+
 ### 📄 File: `InventoryService.java`
 
 **Purpose:** Contains the core "Business Logic".
@@ -249,7 +278,104 @@ public Inventory updateInventory(Inventory req) {
 
 ## 📁 Folder: `src/main/resources/db/migration`
 
-**Purpose:** Versioned database schema management using Flyway.
+**Purpose:** Versioned database schema management using Flyway. This folder contains SQL scripts that are executed in order (based on the version prefix `V1`, `V2`, etc.) to build and update the database schema.
+
+### 📄 File: `V1__init.sql`
+
+**Purpose:** 
+- Initializes the base schema for the application.
+
+**Responsibilities:**
+- Creating the `product` and `inventory` tables.
+- Defining primary keys, foreign keys, and constraints.
+
+**Code Snippet:**
+```sql
+CREATE TABLE product (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255),
+    price NUMERIC(19,2),
+    is_active BOOLEAN
+);
+
+CREATE TABLE inventory (
+    id BIGSERIAL PRIMARY KEY,
+    product_id BIGINT UNIQUE NOT NULL,
+    quantity INTEGER,
+    last_updated TIMESTAMP,
+    CONSTRAINT fk_product FOREIGN KEY(product_id) REFERENCES product(id) ON DELETE CASCADE
+);
+```
+
+**Key Components:**
+- `BIGSERIAL`: Used for auto-incrementing primary keys in PostgreSQL.
+- `UNIQUE NOT NULL`: Ensures a one-to-one mapping between a product and its inventory record.
+- `ON DELETE CASCADE`: Ensures that if a product is deleted, its corresponding inventory record is also removed.
+
+---
+
+### 📄 File: `V2__seed.sql`
+
+**Purpose:** 
+- Populates the database with initial sample data for testing and development.
+
+**Responsibilities:**
+- Inserting 20 initial products into the `product` table.
+- Inserting corresponding stock levels into the `inventory` table.
+- Synchronizing primary key sequences after manual ID insertion.
+
+**Detailed Explanation:**
+- The script uses `INSERT` statements with hardcoded IDs (1-20).
+- **Sequence Fix**: Since manual IDs are used, the PostgreSQL sequence for the `id` column must be manually updated to the next available value (e.g., 21) using `setval(pg_get_serial_sequence('product', 'id'), (SELECT MAX(id) FROM product))`.
+
+---
+
+### 📄 File: `V3__indexes.sql`
+
+**Purpose:** 
+- Optimizes database performance for common queries.
+
+**Responsibilities:**
+- Creating indexes on frequently searched or joined columns.
+
+**Code Snippet:**
+```sql
+CREATE INDEX idx_inventory_product_id ON inventory(product_id);
+CREATE INDEX idx_product_is_active ON product(is_active);
+CREATE INDEX idx_product_price ON product(price);
+```
+
+**Key Components:**
+- `idx_inventory_product_id`: Speeds up joins between `product` and `inventory`.
+- `idx_product_is_active`: Optimizes filtering for active products, which is a common operation in this system.
+
+---
+
+### 📄 File: `V4__audit_log_table.sql`
+
+**Purpose:** 
+- Sets up the storage for the audit tracking system.
+
+**Responsibilities:**
+- Creating the `audit_log` table.
+
+**Code Snippet:**
+```sql
+CREATE TABLE audit_log (
+  id           BIGSERIAL PRIMARY KEY,
+  table_name   VARCHAR(50),
+  operation    VARCHAR(10),
+  product_id   BIGINT,
+  old_quantity INTEGER,
+  new_quantity INTEGER,
+  timestamp    TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Logic Note:**
+- This table stores snapshots of quantity changes, including the `old_quantity` and `new_quantity`, along with the type of `operation` (`INSERT` or `UPDATE`).
+
+---
 
 ### 📄 File: `V5__function.sql`
 - **Logic**: Calculates total value by multiplying active product prices by their quantities.
@@ -277,6 +403,47 @@ AFTER INSERT OR UPDATE ON inventory
 FOR EACH ROW
 EXECUTE FUNCTION inventory_audit_fn();
 ```
+
+---
+
+## 📁 Folder: Root Configuration
+
+**Purpose:** Contains project-wide configuration files for dependencies, build processes, and environment-specific settings.
+
+### 📄 File: `.env_postgres`
+
+**Purpose:** 
+- Stores sensitive and environment-specific configuration variables for the PostgreSQL database.
+
+**Responsibilities:**
+- Defining the database connection parameters (host, port, name, credentials).
+
+**Key Components:**
+- `POSTGRES_HOST`: The address of the database server.
+- `POSTGRES_DB`: The name of the specific database to connect to.
+- `POSTGRES_USERNAME` & `POSTGRES_PASSWORD`: Authentication credentials.
+
+**Detailed Explanation:**
+- This file is read by the `Dotenv` library in `OraclePostgresMigrationAppApplication.java` and injected into the system properties so that Spring Boot's standard `application.properties` (or default settings) can use them.
+
+---
+
+### 📄 File: `pom.xml`
+
+**Purpose:** 
+- The Maven Project Object Model file that manages dependencies and build configuration.
+
+**Responsibilities:**
+- Declaring all external libraries (Spring Boot, Postgres driver, Flyway, Lombok, Dotenv).
+- Configuring the Java compiler version (Java 17).
+- Defining build plugins.
+
+**Key Dependencies:**
+- `spring-boot-starter-data-jpa`: For ORM and database interactions.
+- `postgresql`: The JDBC driver for connecting to PostgreSQL.
+- `flyway-core`: For database migrations.
+- `lombok`: For reducing boilerplate code (getters/setters).
+- `dotenv-java`: For loading the `.env` configuration file.
 
 ---
 
